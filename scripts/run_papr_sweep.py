@@ -23,7 +23,7 @@ from isrj_joint_design.params import (  # noqa: E402
 )
 from isrj_joint_design.plotting import plot_papr_sweep  # noqa: E402
 
-FIGURES = Path(__file__).resolve().parents[1] / "figures"
+FIGURES = Path(__file__).resolve().parents[1] / "figures_初始0"
 
 
 def main() -> None:

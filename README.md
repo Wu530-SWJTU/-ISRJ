@@ -14,6 +14,18 @@ IEEE Signal Processing Letters, 2020（DOI: 10.1109/LSP.2020.3021667）。
 | ADMM 求解波形 | `isrj_joint_design/waveform_admm.py` | PRD_04 |
 | 主算法与相关性绘图 | `isrj_joint_design/joint_design.py`、`plotting.py` | PRD_05 |
 
+## 文档体系
+
+| 文档 | 内容 |
+|------|------|
+| [CONTEXT.md](CONTEXT.md) | 术语表（本项目语境下的专有概念口径） |
+| PRD_01 ~ PRD_05 | 需求规格（唯一权威，含"已确认事项"裁决） |
+| [CLAUDE.md](CLAUDE.md) | 工作约定 + 关键实现决策 + 已知偏差 |
+| [docs/过程文档.md](docs/过程文档.md) | 全过程记录：时间线、决策日志、实验记录 |
+| [docs/知识库.md](docs/知识库.md) | 推导成果与实验结论库 |
+| [docs/adr/](docs/adr/) | 4 条关键决策（共轭约定、式(8) 勘误、损失验收口径、默认窗口） |
+| [docs/验收对照表.md](docs/验收对照表.md) | 每个 PRD 验收项的实测数值与结论 |
+
 ## 环境与运行
 
 ```bash
@@ -28,6 +40,9 @@ source .venv/bin/activate && pip install -r requirements.txt   # Linux/macOS
 .venv/Scripts/python.exe scripts/run_joint_design.py
 ```
 
+> 注意：默认采样窗口为 [2.5, 5) μs（实验设定，见 CLAUDE.md 决策 #11）。
+> 复现 PRD/论文基线（窗口 [0, 2.5) μs）需加 `--tau-offset 0`。
+
 复现论文图 3 的 PAPR 扫描（6 个点，可加 `--repeats 4` 做多起点；用
 `--init lfm` 可得到论文报告的处理增益损失水平，见下）：
 
@@ -36,8 +51,8 @@ source .venv/bin/activate && pip install -r requirements.txt   # Linux/macOS
 .venv/Scripts/python.exe scripts/run_papr_sweep.py --init lfm --repeats 4
 ```
 
-图像输出到 `figures/`，数值结果保存为 `figures/joint_design_result.npz` 与
-`figures/papr_sweep.json`。
+图像输出到 `figures_初始0/`，数值结果保存为 `figures_初始0/joint_design_result.npz` 与
+`figures_初始0/papr_sweep.json`。
 
 ## 测试
 
@@ -60,4 +75,4 @@ source .venv/bin/activate && pip install -r requirements.txt   # Linux/macOS
   （论文 −0.9 dB），换来 PSL −31.6 dB；`init="lfm"` 下损失 −1.32 → −0.50 dB
   随 PAPR 单调改善（η=1.1 时 −0.84 dB，与论文 −0.9 dB 吻合），代价是 PSL
   差约 5–10 dB。详见 CLAUDE.md "已知偏差"。两种初始化的扫描结果分别保存在
-  `figures/papr_sweep_lfm_r4.json` 与 `figures/papr_sweep_random_phase_r4.json`。
+  `figures_初始0/papr_sweep_lfm_r4.json` 与 `figures_初始0/papr_sweep_random_phase_r4.json`。

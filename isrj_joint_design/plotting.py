@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 from .joint_design import compute_metrics  # noqa: E402
 from .matrices import cross_correlation  # noqa: E402
-from .params import GlobalParams  # noqa: E402
+from .params import GlobalParams, generate_isrj_jamming_signal  # noqa: E402
 
 SERIES_1 = "#2a78d6"    # blue
 SERIES_2 = "#eb6834"    # orange
@@ -150,8 +150,47 @@ def plot_waveform(x: np.ndarray, params: GlobalParams,
 
 
 # --------------------------------------------------------------------------
-# 图 3：PAPR 扫描
+# 多转发干扰评估（评估侧实验图）
 # --------------------------------------------------------------------------
+
+def plot_multi_repeat_jamming(x: np.ndarray, h: np.ndarray, params: GlobalParams,
+                              save_path: str | None = None) -> None:
+    """多转发干扰信号经失配滤波器的脉压输出（dB，共用主瓣峰值归一）。
+
+    标注每份转发的偏移位置；每份转发的主瓣（设计阶段钉在 -30 dB 的那根）
+    随偏移整体平移，零延迟处只剩旁瓣（转发#1 偏移 = tau，不再落在零延迟）。
+    """
+    N = params.N
+    y_jam = generate_isrj_jamming_signal(x, params)
+    r_jam = cross_correlation(y_jam, h)
+    ref = abs(np.vdot(h, np.asarray(x)))          # 与图 2 相同的主瓣峰值归一
+
+    k = np.arange(len(r_jam))
+    r_db = _to_db(r_jam, ref)
+    peak_db = float(np.max(r_db))
+
+    fig, ax = plt.subplots(figsize=(9, 4.8), facecolor=SURFACE)
+    ax.plot(k, r_db, color=SERIES_2, linewidth=1.0)
+    for d in params.retransmit_offsets:
+        s = int(round(d * params.fs))
+        ax.axvline(N - 1 + s, color=TEXT_SECONDARY, linewidth=1.0,
+                   linestyle="--", alpha=0.8)
+    ax.set_title(f"Multi-retransmission ISRJ output through mismatched filter "
+                 f"(offsets {[f'{d*1e6:g}' for d in params.retransmit_offsets]} μs)",
+                 fontsize=11)
+    ax.set_xlabel("Delay (samples)")
+    ax.set_ylabel("Normalized correlation (dB)")
+    ax.set_xlim(0, len(r_jam) - 1)
+    lo = max(-120, np.floor(np.min(r_db[np.isfinite(r_db)]) / 20) * 20)
+    ax.set_ylim(lo, 5)
+    ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
+    ax.annotate(f"overall peak = {peak_db:.1f} dB  (limit -30 dB)\n"
+                f"copies: " + ", ".join(f"#{i}: +{d*1e6:g} μs"
+                                        for i, d in enumerate(params.retransmit_offsets, 1)),
+                xy=(0.03, 0.06), xycoords="axes fraction",
+                fontsize=9, color=TEXT_PRIMARY)
+    _style(ax)
+    _save(fig, save_path)
 
 def plot_papr_sweep(results: dict, save_path: str | None = None) -> None:
     """图 3(a)(b)：处理增益损失、ISLs/ILs 随 PAPR 的变化。

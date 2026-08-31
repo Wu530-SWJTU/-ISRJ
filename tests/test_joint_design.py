@@ -10,7 +10,9 @@ from isrj_joint_design.params import GlobalParams, generate_isrj_sampling_functi
 
 @pytest.fixture(scope="module")
 def result():
-    params = GlobalParams(N=64, T_p=64 / 20e6, M=100, seed=1)
+    # PRD 验收测试使用 PRD 基线窗口 [0, 2.5) μs（显式 tau_offset=0）；
+    # 默认窗口 [2.5, 5) μs 是实验设定（CLAUDE.md 决策 #11），收敛节奏不同。
+    params = GlobalParams(N=64, T_p=64 / 20e6, M=100, seed=1, tau_offset=0.0)
     j = generate_isrj_sampling_function(params)
     return params, j, joint_design_algorithm(params, j, verbose=False)
 

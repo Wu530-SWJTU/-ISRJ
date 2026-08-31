@@ -1,0 +1,14 @@
+{
+  "single_copy_il": 10737.21643629414,
+  "multi_copy_il": 21494.2363980335,
+  "multi_copy_peak_db": -28.88266825342402,
+  "multi_copy_zero_delay_db": -29.450721264844724,
+  "copy_positions_db": [
+    -44.002692057679475,
+    -51.8454312320113
+  ],
+  "offsets_us": [
+    2.5,
+    10.0
+  ]
+}

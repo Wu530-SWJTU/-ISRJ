@@ -5,6 +5,7 @@ import pytest
 
 from isrj_joint_design.params import (
     GlobalParams,
+    generate_isrj_jamming_signal,
     generate_isrj_sampling_function,
     initialize_variables,
 )
@@ -23,16 +24,73 @@ def test_derived_constraint_values(params):
     assert (params.N_Ts, params.N_tau) == (200, 50)
 
 
-def test_sampling_function_is_binary_with_correct_duty_cycle(params):
-    """验收 1、2：长度 N，元素 0/1，每周期前 N_tau 个为 1，占空比 0.25。"""
+def test_sampling_function_default_window(params):
+    """默认窗口 [2.5, 5) μs（用户 2026-08-25 实验设定）：长度 N，元素 0/1，
+    每周期第 50~99 个采样点为 1，占空比 0.25。"""
     j = generate_isrj_sampling_function(params)
     assert j.shape == (params.N,)
     assert set(np.unique(j)) <= {0.0, 1.0}
     assert j.mean() == pytest.approx(params.tau / params.T_s)
+    assert params.N_tau_offset == 50
     for start in range(0, params.N, params.N_Ts):
         block = j[start:start + params.N_Ts]
-        assert np.all(block[:params.N_tau] == 1.0)
-        assert np.all(block[params.N_tau:] == 0.0)
+        off = params.N_tau_offset
+        assert np.all(block[:off] == 0.0)
+        assert np.all(block[off:off + params.N_tau] == 1.0)
+        assert np.all(block[off + params.N_tau:] == 0.0)
+
+
+def test_sampling_function_prd_baseline_window():
+    """PRD_01 §6 验收 1、2（基线行为）：tau_offset=0 时每周期前 N_tau 个为 1。"""
+    p = GlobalParams(seed=0, tau_offset=0.0)
+    j = generate_isrj_sampling_function(p)
+    assert j.mean() == pytest.approx(p.tau / p.T_s)
+    for start in range(0, p.N, p.N_Ts):
+        block = j[start:start + p.N_Ts]
+        assert np.all(block[:p.N_tau] == 1.0)
+        assert np.all(block[p.N_tau:] == 0.0)
+
+
+def test_sampling_window_offset():
+    """采样窗口起点旋钮：tau_offset=0.25μs、tau=0.25μs → 每周期第 5~9 点为 1。
+
+    默认参数（tau_offset=0）的 PRD 行为不受影响，见上一个测试。
+    """
+    p = GlobalParams(seed=0, tau=0.25e-6, tau_offset=0.25e-6)
+    j = generate_isrj_sampling_function(p)
+    assert p.N_tau == 5 and p.N_tau_offset == 5
+    assert j.mean() == pytest.approx(p.tau / p.T_s)          # 占空比 0.025
+    for start in range(0, p.N, p.N_Ts):
+        block = j[start:start + p.N_Ts]
+        assert np.all(block[:5] == 0.0)                      # [0, 0.25μs) 关
+        assert np.all(block[5:10] == 1.0)                    # [0.25, 0.5)μs 开
+        assert np.all(block[10:] == 0.0)                     # [0.5, 10)μs 关
+
+
+def test_multi_repeat_jamming_signal():
+    """多转发干扰生成（评估侧）：转发#1 截取完成后发（平移 50 点）、转发#2 平移 200 点。"""
+    p = GlobalParams(seed=0, T_s=20e-6, tau_offset=0.0,
+                     retransmit_offsets=(2.5e-6, 10e-6))
+    rng = np.random.default_rng(1)
+    x = np.exp(2j * np.pi * rng.random(p.N))
+    j = generate_isrj_sampling_function(p)
+    xj = x * j
+    y = generate_isrj_jamming_signal(x, p)
+
+    assert y.shape == (p.N + 200,)
+    assert np.allclose(y[50:50 + p.N][j == 1], x[j == 1])          # 转发#1 平移 50
+    assert np.allclose(y[200:200 + p.N][j == 1], x[j == 1])        # 转发#2 平移 200
+    assert np.sum(np.abs(y) ** 2) == pytest.approx(2 * np.sum(np.abs(xj) ** 2))
+
+
+def test_multi_repeat_jamming_single_copy_degenerates_to_sampled_waveform():
+    """retransmit_offsets=(0,) 时退化为设计阶段的单份零延迟模型 x ⊙ j。"""
+    p = GlobalParams(seed=0, T_s=20e-6, tau_offset=0.0, retransmit_offsets=(0.0,))
+    rng = np.random.default_rng(2)
+    x = np.exp(2j * np.pi * rng.random(p.N))
+    y = generate_isrj_jamming_signal(x, p)
+    assert y.shape == (p.N,)
+    assert np.allclose(y, x * generate_isrj_sampling_function(p))
 
 
 def test_initial_waveform_and_filter_are_unit_modulus(params):

@@ -24,7 +24,7 @@ from isrj_joint_design.plotting import (  # noqa: E402
     plot_waveform,
 )
 
-FIGURES = Path(__file__).resolve().parents[1] / "figures"
+FIGURES = Path(__file__).resolve().parents[1] / "figures_初始0"
 
 
 def main() -> None:
@@ -33,6 +33,11 @@ def main() -> None:
     ap.add_argument("--M", type=int, default=100, help="外层迭代次数（默认论文值 100）")
     ap.add_argument("--eta", type=float, default=1.1, help="PAPR 约束")
     ap.add_argument("--rho", type=float, default=5000.0, help="ADMM 惩罚参数")
+    ap.add_argument("--tau", type=float, default=2.5e-6,
+                    help="中断采样脉宽 [s]（PRD 默认 2.5e-6）")
+    ap.add_argument("--tau-offset", type=float, default=2.5e-6,
+                    help="采样窗口起点 [s]（默认 2.5e-6 即 [2.5, 5) μs 实验窗口；"
+                    "PRD/论文基线用 0）")
     ap.add_argument("--seed", type=int, default=2020)
     ap.add_argument("--init", choices=("random_phase", "lfm"),
                     default="random_phase", help="波形初始化方式（PRD_01 默认随机相位；"
@@ -44,7 +49,8 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     params = GlobalParams(N=args.N, T_p=args.N / 20e6, M=args.M,
-                          eta=args.eta, rho=args.rho, seed=args.seed, init=args.init)
+                          eta=args.eta, rho=args.rho, seed=args.seed, init=args.init,
+                          tau=args.tau, tau_offset=args.tau_offset)
     j = generate_isrj_sampling_function(params)
 
     print(f"联合设计: N={params.N}, M={params.M}, eta={params.eta}, "

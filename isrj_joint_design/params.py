@@ -26,7 +26,15 @@ class GlobalParams:
 
     # --- 干扰机参数 ---
     T_s: float = 10e-6          # 采样重复周期 [s]
-    tau: float = 2.5e-6         # 中断采样脉宽 [s]
+    tau: float = 2.5e-6         # 中断采样脉宽 [s]（PRD 默认 2.5e-6）
+    # 采样窗口起点 [s]。默认 2.5e-6 即窗口 [2.5, 5) μs —— 用户 2026-08-25 指定的
+    # 实验设定，偏离 PRD_01 §3.2 的 [0, 2.5) μs；复现 PRD/论文基线请用 tau_offset=0。
+    tau_offset: float = 2.5e-6
+    # 多次转发的偏移列表 [s]（评估侧旋钮，设计阶段不建模）。默认 (2.5e-6, 10e-6)：
+    # 转发#1 在截取完成后马上转发（偏移 = tau = 2.5 μs），转发#2 在采样开始 10 μs 后。
+    # 用户 2026-08-30 实验设定，配合 T_s=20e-6、tau_offset=0 使用；
+    # 更早的"边采样边转发"口径用 retransmit_offsets=(0, 10e-6) 恢复。
+    retransmit_offsets: tuple = (2.5e-6, 10e-6)
     # 以下参数仅论文图 4 场景使用（干扰机时延/重发/SJR/几何位置），
     # 联合设计阶段（图 1-3）不建模，按 PRD_05 §8.3 保留但不参与计算。
     tau_delay_jammer: float = 2e-6
@@ -74,16 +82,44 @@ class GlobalParams:
         """一个中断采样脉冲内的采样点数。"""
         return int(round(self.tau * self.fs))
 
+    @property
+    def N_tau_offset(self) -> int:
+        """采样窗口起点相对每个周期起点的偏移采样点数（默认 0）。"""
+        return int(round(self.tau_offset * self.fs))
+
 
 def generate_isrj_sampling_function(params: GlobalParams) -> np.ndarray:
     """生成 ISRJ 离散采样函数 ``j``（PRD_01 §3）。
 
-    每个周期的前 ``N_tau`` 个采样点为 1（干扰机采样），其余为 0。
+    每个周期内从第 ``N_tau_offset`` 个采样点起、连续 ``N_tau`` 个点为 1
+    （干扰机采样），其余为 0。默认窗口为 [2.5, 5) μs（实验设定），PRD_01 §3.2
+    的基线窗口 [0, 2.5) μs 用 ``tau_offset=0`` 恢复。
 
     返回 shape=(N,) 的 float 数组，元素为 0.0 或 1.0。
     """
-    n = np.arange(params.N)
-    return (np.mod(n, params.N_Ts) < params.N_tau).astype(float)
+    n = np.mod(np.arange(params.N), params.N_Ts)
+    return ((n >= params.N_tau_offset)
+            & (n < params.N_tau_offset + params.N_tau)).astype(float)
+
+
+def generate_isrj_jamming_signal(x: np.ndarray, params: GlobalParams) -> np.ndarray:
+    """生成多次转发的 ISRJ 干扰信号（评估侧，零内部处理时延）。
+
+    每个采样窗口截取到的波形按 ``params.retransmit_offsets`` 里的每个偏移
+    搬运一份：``y_jam = Σ_r shift_{d_r}(x ⊙ j)``。默认 (2.5, 10) μs 对应
+    "转发#1 在截取完成后马上转发（偏移 = tau）、转发#2 在采样开始 10 μs 后转发"。
+
+    返回长度 ``N + max(round(d_r·fs))`` 的复向量；设计阶段（模块二~五）的
+    单份零延迟模型即 ``retransmit_offsets=(0,)`` 的退化情形。
+    """
+    x = np.asarray(x, dtype=complex)
+    j = generate_isrj_sampling_function(params)
+    d_max = max(int(round(d * params.fs)) for d in params.retransmit_offsets)
+    y = np.zeros(params.N + d_max, dtype=complex)
+    for d in params.retransmit_offsets:
+        s = int(round(d * params.fs))
+        y[s:s + params.N] += x * j
+    return y
 
 
 def random_phase_vector(size: int, rng: np.random.Generator) -> np.ndarray:
