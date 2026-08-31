@@ -184,13 +184,75 @@ def plot_multi_repeat_jamming(x: np.ndarray, h: np.ndarray, params: GlobalParams
     lo = max(-120, np.floor(np.min(r_db[np.isfinite(r_db)]) / 20) * 20)
     ax.set_ylim(lo, 5)
     ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
-    ax.annotate(f"overall peak = {peak_db:.1f} dB  (limit -30 dB)\n"
+    ax.annotate(f"overall peak = {peak_db:.1f} dB  (no-error reference -30 dB)\n"
                 f"copies: " + ", ".join(f"#{i}: +{d*1e6:g} μs"
                                         for i, d in enumerate(params.retransmit_offsets, 1)),
                 xy=(0.03, 0.06), xycoords="axes fraction",
                 fontsize=9, color=TEXT_PRIMARY)
     _style(ax)
     _save(fig, save_path)
+
+
+# --------------------------------------------------------------------------
+# 参数误差评估（评估侧实验图）
+# --------------------------------------------------------------------------
+
+def plot_param_error_result(x: np.ndarray, h: np.ndarray, j_actual: np.ndarray,
+                            ref: float, offset_error_us: float,
+                            save_path: str | None = None) -> None:
+    """带参数误差的实际干扰经失配滤波器的脉压输出（dB，共用主瓣峰值归一）。"""
+    N = np.asarray(x).size
+    r = cross_correlation(np.asarray(x) * np.asarray(j_actual), np.asarray(h))
+    k = np.arange(len(r))
+    r_db = _to_db(r, ref)
+    peak_db = float(np.max(r_db))
+
+    fig, ax = plt.subplots(figsize=(9, 4.8), facecolor=SURFACE)
+    ax.plot(k, r_db, color=SERIES_2, linewidth=1.0)
+    ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
+    ax.axvline(N - 1, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
+    ax.set_title(f"ISRJ output under parameter error (window start error "
+                 f"{offset_error_us:+g} μs)", fontsize=11)
+    ax.set_xlabel("Delay (samples)")
+    ax.set_ylabel("Normalized correlation (dB)")
+    ax.set_xlim(0, len(r) - 1)
+    lo = max(-120, np.floor(np.min(r_db[np.isfinite(r_db)]) / 20) * 20)
+    ax.set_ylim(lo, 5)
+    ax.annotate(f"peak = {peak_db:.1f} dB  (no-error reference -30 dB)\n"
+                f"zero-delay = {float(_to_db(r[N - 1:N], ref)[0]):.1f} dB",
+                xy=(0.03, 0.06), xycoords="axes fraction",
+                fontsize=9, color=TEXT_PRIMARY)
+    _style(ax)
+    _save(fig, save_path)
+
+
+def plot_param_error_sweep(sweep: dict, save_path: str | None = None) -> None:
+    """参数误差扫描：左 = 零延迟/峰值电平 vs 窗口起点误差，右 = IL vs 误差。"""
+    err = np.asarray(sweep["offset_error_us"])
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.5), facecolor=SURFACE)
+
+    ax = axes[0]
+    ax.plot(err, sweep["zero_delay_db"], color=SERIES_1, linewidth=2,
+            marker="o", markersize=6, label="zero-delay level")
+    ax.plot(err, sweep["peak_db"], color=SERIES_2, linewidth=2,
+            marker="s", markersize=6, label="overall peak")
+    ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
+    ax.set_title("(a) ISRJ level vs. window-start error", fontsize=11)
+    ax.set_xlabel("Window-start error (μs)")
+    ax.set_ylabel("Normalized level (dB)")
+    ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
+    _style(ax)
+
+    ax = axes[1]
+    ax.semilogy(err, sweep["il"], color=SERIES_1, linewidth=2,
+                marker="o", markersize=6)
+    ax.set_title("(b) Integrated jamming level vs. error", fontsize=11)
+    ax.set_xlabel("Window-start error (μs)")
+    ax.set_ylabel("IL")
+    _style(ax)
+
+    _save(fig, save_path)
+
 
 def plot_papr_sweep(results: dict, save_path: str | None = None) -> None:
     """图 3(a)(b)：处理增益损失、ISLs/ILs 随 PAPR 的变化。
