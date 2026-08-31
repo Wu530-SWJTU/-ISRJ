@@ -24,31 +24,18 @@ def test_derived_constraint_values(params):
     assert (params.N_Ts, params.N_tau) == (200, 50)
 
 
-def test_sampling_function_default_window(params):
-    """默认窗口 [2.5, 5) μs（用户 2026-08-25 实验设定）：长度 N，元素 0/1，
-    每周期第 50~99 个采样点为 1，占空比 0.25。"""
+def test_sampling_function_default_window_is_prd_baseline(params):
+    """PRD_01 §6 验收 1、2：默认窗口 [0, 2.5) μs —— 长度 N，元素 0/1，
+    每周期前 N_tau 个为 1，占空比 0.25。"""
     j = generate_isrj_sampling_function(params)
     assert j.shape == (params.N,)
     assert set(np.unique(j)) <= {0.0, 1.0}
     assert j.mean() == pytest.approx(params.tau / params.T_s)
-    assert params.N_tau_offset == 50
+    assert params.N_tau_offset == 0
     for start in range(0, params.N, params.N_Ts):
         block = j[start:start + params.N_Ts]
-        off = params.N_tau_offset
-        assert np.all(block[:off] == 0.0)
-        assert np.all(block[off:off + params.N_tau] == 1.0)
-        assert np.all(block[off + params.N_tau:] == 0.0)
-
-
-def test_sampling_function_prd_baseline_window():
-    """PRD_01 §6 验收 1、2（基线行为）：tau_offset=0 时每周期前 N_tau 个为 1。"""
-    p = GlobalParams(seed=0, tau_offset=0.0)
-    j = generate_isrj_sampling_function(p)
-    assert j.mean() == pytest.approx(p.tau / p.T_s)
-    for start in range(0, p.N, p.N_Ts):
-        block = j[start:start + p.N_Ts]
-        assert np.all(block[:p.N_tau] == 1.0)
-        assert np.all(block[p.N_tau:] == 0.0)
+        assert np.all(block[:params.N_tau] == 1.0)
+        assert np.all(block[params.N_tau:] == 0.0)
 
 
 def test_sampling_window_offset():

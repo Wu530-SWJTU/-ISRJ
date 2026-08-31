@@ -35,9 +35,9 @@ def main() -> None:
     ap.add_argument("--rho", type=float, default=5000.0, help="ADMM 惩罚参数")
     ap.add_argument("--tau", type=float, default=2.5e-6,
                     help="中断采样脉宽 [s]（PRD 默认 2.5e-6）")
-    ap.add_argument("--tau-offset", type=float, default=2.5e-6,
-                    help="采样窗口起点 [s]（默认 2.5e-6 即 [2.5, 5) μs 实验窗口；"
-                    "PRD/论文基线用 0）")
+    ap.add_argument("--tau-offset", type=float, default=0.0,
+                    help="采样窗口起点 [s]（PRD 默认 0，即窗口 [0, 2.5) μs；"
+                    "实验旋钮，如 2.5e-6 表示窗口 [2.5, 5) μs）")
     ap.add_argument("--seed", type=int, default=2020)
     ap.add_argument("--init", choices=("random_phase", "lfm"),
                     default="random_phase", help="波形初始化方式（PRD_01 默认随机相位；"

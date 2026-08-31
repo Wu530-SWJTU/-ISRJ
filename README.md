@@ -40,8 +40,8 @@ source .venv/bin/activate && pip install -r requirements.txt   # Linux/macOS
 .venv/Scripts/python.exe scripts/run_joint_design.py
 ```
 
-> 注意：默认采样窗口为 [2.5, 5) μs（实验设定，见 CLAUDE.md 决策 #11）。
-> 复现 PRD/论文基线（窗口 [0, 2.5) μs）需加 `--tau-offset 0`。
+> 默认采样窗口为 PRD 基线的 [0, 2.5) μs。实验旋钮：`--tau-offset`（窗口起点）、
+> `--tau`（窗口宽度）等，见 `--help`。
 
 复现论文图 3 的 PAPR 扫描（6 个点，可加 `--repeats 4` 做多起点；用
 `--init lfm` 可得到论文报告的处理增益损失水平，见下）：

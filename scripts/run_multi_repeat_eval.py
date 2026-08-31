@@ -46,7 +46,10 @@ def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    params = GlobalParams(N=800, T_s=20e-6, tau_offset=0.0, M=args.M, seed=args.seed)
+    # 本实验自己的口径显式钉住（不依赖 GlobalParams 默认值，默认值恢复 PRD 基线后
+    # 本脚本口径不受影响）：转发#1 截取完成后发（偏移 2.5 μs）、转发#2 在 +10 μs。
+    params = GlobalParams(N=800, T_s=20e-6, tau_offset=0.0, M=args.M, seed=args.seed,
+                          retransmit_offsets=(2.5e-6, 10e-6))
     j = generate_isrj_sampling_function(params)
     print(f"采样函数: 周期 {params.N_Ts} 点, 窗口 {params.N_tau} 点, "
           f"非零 {int(j.sum())} 点（每 20 μs 采样一次）", flush=True)
