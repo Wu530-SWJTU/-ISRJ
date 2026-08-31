@@ -94,7 +94,7 @@ def plot_correlation_comparison(x: np.ndarray, h: np.ndarray, j: np.ndarray,
     ax.set_xlim(0, 2 * N - 2)
     ax.set_ylim(lo, 5)
     ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--")
-    ax.annotate(f"ISRJ peak = {m['isrj_peak_db']:.1f} dB  (limit -30 dB)",
+    ax.annotate(f"ISRJ peak = {m['isrj_peak_db']:.1f} dB  (no-error reference -30 dB)",
                 xy=(0.03, 0.06), xycoords="axes fraction",
                 fontsize=9, color=TEXT_PRIMARY)
     _style(ax)
@@ -184,7 +184,7 @@ def plot_multi_repeat_jamming(x: np.ndarray, h: np.ndarray, params: GlobalParams
     lo = max(-120, np.floor(np.min(r_db[np.isfinite(r_db)]) / 20) * 20)
     ax.set_ylim(lo, 5)
     ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
-    ax.annotate(f"overall peak = {peak_db:.1f} dB  (limit -30 dB)\n"
+    ax.annotate(f"overall peak = {peak_db:.1f} dB  (no-error reference -30 dB)\n"
                 f"copies: " + ", ".join(f"#{i}: +{d*1e6:g} μs"
                                         for i, d in enumerate(params.retransmit_offsets, 1)),
                 xy=(0.03, 0.06), xycoords="axes fraction",
