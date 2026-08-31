@@ -31,8 +31,8 @@ from isrj_joint_design.params import GlobalParams, generate_isrj_sampling_functi
 from isrj_joint_design.plotting import plot_param_error_result  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-DESIGN_NPZ = ROOT / "参数误差" / "joint_design_result_random_phase.npz"
-OUTDIR = ROOT / "参数误差"
+DESIGN_NPZ = ROOT / "参数误差" / "转发时间" / "joint_design_result_random_phase.npz"
+OUTDIR = ROOT / "参数误差" / "转发时间"
 
 
 def _db(values: np.ndarray, ref: float) -> np.ndarray:

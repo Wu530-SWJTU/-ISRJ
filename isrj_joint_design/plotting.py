@@ -226,9 +226,11 @@ def plot_param_error_result(x: np.ndarray, h: np.ndarray, j_actual: np.ndarray,
     _save(fig, save_path)
 
 
-def plot_param_error_sweep(sweep: dict, save_path: str | None = None) -> None:
-    """参数误差扫描：左 = 零延迟/峰值电平 vs 窗口起点误差，右 = IL vs 误差。"""
-    err = np.asarray(sweep["offset_error_us"])
+def plot_param_error_sweep(sweep: dict, save_path: str | None = None,
+                           xlabel: str = "Window-start error (μs)",
+                           xkey: str = "offset_error_us") -> None:
+    """参数误差扫描：左 = 零延迟/峰值电平 vs 误差，右 = IL vs 误差。"""
+    err = np.asarray(sweep[xkey])
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.5), facecolor=SURFACE)
 
     ax = axes[0]
@@ -237,8 +239,8 @@ def plot_param_error_sweep(sweep: dict, save_path: str | None = None) -> None:
     ax.plot(err, sweep["peak_db"], color=SERIES_2, linewidth=2,
             marker="s", markersize=6, label="overall peak")
     ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
-    ax.set_title("(a) ISRJ level vs. window-start error", fontsize=11)
-    ax.set_xlabel("Window-start error (μs)")
+    ax.set_title("(a) ISRJ level vs. parameter error", fontsize=11)
+    ax.set_xlabel(xlabel)
     ax.set_ylabel("Normalized level (dB)")
     ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
     _style(ax)
