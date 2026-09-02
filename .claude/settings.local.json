@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m '主干建立全局结果归档：参数误差/ 收录全部四族误差实验 *)"
+    ]
+  }
+}

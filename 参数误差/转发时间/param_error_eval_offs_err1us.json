@@ -1,0 +1,10 @@
+{
+  "offset_error_us": 1.0,
+  "tau_us": 2.5,
+  "assumed_zero_delay_db": -29.999999814861877,
+  "actual_zero_delay_db": -17.480142115305007,
+  "assumed_peak_db": -29.999999814861877,
+  "actual_peak_db": -17.480142115305007,
+  "il_assumed": 11948.969462435522,
+  "il_actual": 122468.17717089807
+}
