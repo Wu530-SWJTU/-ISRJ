@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 figures_初始0/
+.claude/
