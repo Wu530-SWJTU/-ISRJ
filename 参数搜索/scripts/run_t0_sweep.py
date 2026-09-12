@@ -120,7 +120,7 @@ def _style(ax) -> None:
 
 
 def plot(rows: list, save_path: Path) -> None:
-    t0 = np.array([r["t0_us"] for r in rows])
+    err = np.array([r["t0_error_us"] for r in rows])      # 横坐标：t_0 误差 ±μs
     zero = np.array([r["zero_delay_db"] for r in rows])
     peak = np.array([r["peak_db"] for r in rows])
     il = np.array([r["il"] for r in rows])
@@ -128,33 +128,31 @@ def plot(rows: list, save_path: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.6), facecolor=SURFACE)
 
     ax = axes[0]
-    ax.plot(t0, zero, color=SERIES_1, linewidth=2, marker="o", markersize=4,
+    ax.plot(err, zero, color=SERIES_1, linewidth=2, marker="o", markersize=4,
             label="zero-delay level")
     # 单份原位转发模型下整体峰值恒等于零延迟值（差异 ~1e-15），标记点单独画，
     # 避免两条曲线重叠导致下面那条不可见。
-    ax.plot(t0, peak, color=SERIES_2, linestyle="none", marker="s", markersize=3,
+    ax.plot(err, peak, color=SERIES_2, linestyle="none", marker="s", markersize=3,
             label="overall peak (= zero-delay)")
     ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
-    ax.axvline(T0_DESIGN_US, color=TEXT_SECONDARY, linewidth=1.0,
-               linestyle="--", alpha=0.8)
+    ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
     lo = max(-60, np.floor(np.min(zero) / 10) * 10 - 5)
     ax.set_ylim(lo, 5)
-    ax.annotate(f"design baseline $t_0$ = {T0_DESIGN_US:g} $\\mu$s\n"
-                f"zero-delay at baseline = {zero[np.argmin(np.abs(t0 - T0_DESIGN_US))]:.2f} dB",
+    ax.annotate(f"design baseline $t_0$ = {T0_DESIGN_US:g} $\\mu$s (zero error)\n"
+                f"zero-delay at baseline = {zero[np.argmin(np.abs(err))]:.2f} dB",
                 xy=(0.03, 0.06), xycoords="axes fraction",
                 fontsize=9, color=TEXT_PRIMARY)
-    ax.set_title("(a) ISRJ level vs. actual window start", fontsize=11)
-    ax.set_xlabel("Actual window start $t_0$ ($\\mu$s)")
+    ax.set_title("(a) ISRJ level vs. window-start error", fontsize=11)
+    ax.set_xlabel("Window-start error (μs)")
     ax.set_ylabel("Normalized level (dB)")
     ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
     _style(ax)
 
     ax = axes[1]
-    ax.semilogy(t0, il, color=SERIES_1, linewidth=2, marker="o", markersize=4)
-    ax.axvline(T0_DESIGN_US, color=TEXT_SECONDARY, linewidth=1.0,
-               linestyle="--", alpha=0.8)
-    ax.set_title("(b) Integrated jamming level vs. actual window start", fontsize=11)
-    ax.set_xlabel("Actual window start $t_0$ ($\\mu$s)")
+    ax.semilogy(err, il, color=SERIES_1, linewidth=2, marker="o", markersize=4)
+    ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
+    ax.set_title("(b) Integrated jamming level vs. window-start error", fontsize=11)
+    ax.set_xlabel("Window-start error (μs)")
     ax.set_ylabel("IL")
     _style(ax)
 
@@ -173,14 +171,14 @@ def write_table(rows: list, save_path: Path) -> None:
         f"截取长度 {TAU_US:g} μs、采样周期 {TS_US:g} μs、占空比 "
         f"{TAU_US / TS_US:.2f}。归一化分母 = $|h^H x|$ = b_max = N。",
         "",
-        "| 实际 t_0 (μs) | 误差 ε (μs) | 零延迟电平 (dB) | 整体峰值 (dB) | C | IL |",
+        "| 误差 (μs) | 实际 t_0 (μs) | 零延迟电平 (dB) | 整体峰值 (dB) | C | IL |",
         "|---|---|---|---|---|---|",
     ]
     for r in rows:
         if abs(r["t0_error_us"] * 2 - round(r["t0_error_us"] * 2)) > 1e-6:
             continue                     # 只保留 0.5 μs 的整数倍
         lines.append(
-            f"| {r['t0_us']:.2f} | {r['t0_error_us']:+.2f} | "
+            f"| {r['t0_error_us']:+.2f} | {r['t0_us']:.2f} | "
             f"{r['zero_delay_db']:.2f} | {r['peak_db']:.2f} | "
             f"{r['C']:.3f} | {r['il']:.3e} |")
     save_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
