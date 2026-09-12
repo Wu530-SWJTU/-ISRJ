@@ -142,7 +142,8 @@ def plot(rows: list, save_path: Path) -> None:
                 f"zero-delay at baseline = {zero[np.argmin(np.abs(err))]:.2f} dB",
                 xy=(0.03, 0.06), xycoords="axes fraction",
                 fontsize=9, color=TEXT_PRIMARY)
-    ax.set_title("(a) ISRJ level vs. window-start error", fontsize=11)
+    ax.set_title("(a) ISRJ level after filtering, under window-start error",
+                 fontsize=11)
     ax.set_xlabel("Window-start error (μs)")
     ax.set_ylabel("Normalized level (dB)")
     ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
@@ -151,7 +152,8 @@ def plot(rows: list, save_path: Path) -> None:
     ax = axes[1]
     ax.semilogy(err, il, color=SERIES_1, linewidth=2, marker="o", markersize=4)
     ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
-    ax.set_title("(b) Integrated jamming level vs. window-start error", fontsize=11)
+    ax.set_title("(b) Integrated jamming level after filtering, under window-start error",
+                 fontsize=11)
     ax.set_xlabel("Window-start error (μs)")
     ax.set_ylabel("IL")
     _style(ax)
