@@ -42,7 +42,7 @@ D_DESIGN = TAU_US / TS_US
 GRID_T0 = np.arange(-2.5, 2.5001, 0.25)
 GRID_D = np.arange(-0.20, 0.2001, 0.02)
 DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "窗口起点" / "joint_design_result_t0_2.5us.npz"
-MAP_TS_JSON = ROOT / "参数搜索" / "结果" / "二维误差图" / "二维误差图.json"
+MAP_TS_JSON = ROOT / "参数搜索" / "结果" / "联合误差" / "t0_ts_联合误差.json"
 OUTDIR = ROOT / "参数搜索" / "结果" / "联合误差"
 TEXT_PRIMARY = "#0b0b0b"
 TEXT_SECONDARY = "#52514e"
@@ -159,7 +159,7 @@ def main() -> None:
     plt.close(fig)
     print(f"  图已保存：{out.name}")
 
-    (OUTDIR / "联合误差.json").write_text(json.dumps({
+    (OUTDIR / "t0_d_联合误差.json").write_text(json.dumps({
         "design": {"npz": DESIGN_NPZ.name, "t0_us": T0_US, "ts_us": TS_US,
                    "tau_us": TAU_US, "d": D_DESIGN, "N": N, "seed": 0},
         "map_t0_ts": {"source": MAP_TS_JSON.name, "axis_t0": XA.tolist(),
@@ -183,7 +183,7 @@ def main() -> None:
                      f"{r['t0_sensitivity_0p5']:+.2f} dB | {r['second_axis_at_minus']:+.2f} dB | "
                      f"{r['second_axis_at_plus']:+.2f} dB | {shape} |")
     lines += ["", "（\"另一维 −/＋端\"= 固定 t_0 误差为 0 时，另一维走到负端/正端相对设计点的抬升。）"]
-    (OUTDIR / "结果表.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (OUTDIR / "两两对比_结果表.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("  JSON 与结果表已保存")
 
 

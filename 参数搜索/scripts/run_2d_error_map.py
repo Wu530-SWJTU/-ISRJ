@@ -43,7 +43,7 @@ N = 800
 T0_US, TS_US, TAU_US = 2.5, 10.0, 2.5
 GRID = np.arange(-2.5, 2.5001, 0.25)
 DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "窗口起点" / "joint_design_result_t0_2.5us.npz"
-OUTDIR = ROOT / "参数搜索" / "结果" / "二维误差图"
+OUTDIR = ROOT / "参数搜索" / "结果" / "联合误差"
 SURFACE_C = "#fcfcfb"
 TEXT_PRIMARY = "#0b0b0b"
 TEXT_SECONDARY = "#52514e"
@@ -148,12 +148,12 @@ def main() -> None:
     fig.colorbar(cf, ax=ax2, shrink=0.9, pad=0.03, label="level (dB)")
 
     fig.tight_layout()
-    out = OUTDIR / "二维误差图_转发时间x采样周期.png"
+    out = OUTDIR / "t0_ts_联合误差.png"
     fig.savefig(out, dpi=150, facecolor=SURFACE_C)
     plt.close(fig)
     print(f"  图已保存：{out.name}")
 
-    (OUTDIR / "二维误差图.json").write_text(json.dumps({
+    (OUTDIR / "t0_ts_联合误差.json").write_text(json.dumps({
         "design": {"npz": DESIGN_NPZ.name, "t0_us": T0_US, "ts_us": TS_US,
                    "tau_us": TAU_US, "N": N, "seed": 0, "init": "random_phase",
                    "denominator": float(peak)},
@@ -179,7 +179,7 @@ def main() -> None:
              f"| 谷脊斜率（t_0 误差对 T_s 误差的最优响应） | {slope:+.3f}（最大偏离直线 {resid:.2f} μs） |",
              f"| 两维耦合强度（固定 T_s 误差、调 t_0 的最大补偿量） | {comp_max:.2f} dB（约占退化的 {frac * 100:.0f}%） |",
              "", "按 J/S = 0 dB 幅度口径，表中的 dB 可直接读作「假目标相对真目标」。"]
-    (OUTDIR / "结果表.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (OUTDIR / "t0_ts_结果表.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"  JSON 与结果表已保存")
 
 

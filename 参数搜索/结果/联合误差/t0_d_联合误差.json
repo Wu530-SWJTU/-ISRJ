@@ -9,7 +9,7 @@
     "seed": 0
   },
   "map_t0_ts": {
-    "source": "二维误差图.json",
+    "source": "t0_ts_联合误差.json",
     "axis_t0": [
       -2.5,
       -2.25,
