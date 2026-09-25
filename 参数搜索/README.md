@@ -38,15 +38,18 @@ v1（自建 800 点体系）结果已归档到 `结果/_v1_自建800点/`。
 
 ```
 参数搜索/
-├── README.md                  本文件
-├── docs/
-│   ├── 搜索线规格说明.md        口径与工程约定（开发时以此为准）
-│   ├── 组会汇报.md             方案全文（符号对照表、WJPS 矩阵链、V 型数据）
-│   └── 工作流.md               W0–W6 阶段、门禁、算力预算
+├── README.md                            本文件
+├── docs/                                规格说明 / 组会汇报 / 工作流 / 灵敏度机理
 ├── scripts/
-│   └── run_t0_sweep.py        实验 1：归一化电平 – 窗口起点 t_0
+│   ├── baseline.py                      **v2 基线唯一来源**
+│   ├── run_joint_error_maps.py          三对联合误差图（数据）
+│   ├── plot_joint_error_summary.py      三对合成一张（2×3 图）
+│   └── run_smoothness_analysis.py       三维平滑性分析
 └── 结果/
-    └── 窗口起点/               设计对 npz + json + png + 结果表.md
+    ├── 设计对/                          共享设计对 npz（自动生成，约 5 s）
+    ├── 联合误差/                        三对联合误差图（主交付）
+    ├── 平滑性/                          平滑性分析（主交付）
+    └── _v1_自建800点/                   v1 结果归档（不再更新）
 ```
 
 ## 已有结果（v2）
@@ -63,9 +66,10 @@ v1（自建 800 点体系）结果已归档到 `结果/_v1_自建800点/`。
 
 ```bash
 # Windows 下务必用 .venv（勿用裸 python）
-.venv/Scripts/python.exe 参数搜索/scripts/run_t0_sweep.py            # 复用已存设计，秒级
-.venv/Scripts/python.exe 参数搜索/scripts/run_t0_sweep.py --redesign # 重跑联合设计（约 50 s）
-.venv/Scripts/python.exe 参数搜索/scripts/run_t0_sweep.py --min -1 --max 1 --step 0.05  # 换扫描范围
+.venv/Scripts/python.exe 参数搜索/scripts/run_joint_error_maps.py   # 三对联合误差数据（含自动设计，约 1 分钟）
+.venv/Scripts/python.exe 参数搜索/scripts/plot_joint_error_summary.py  # 合成 2×3 总览图（秒级）
+.venv/Scripts/python.exe 参数搜索/scripts/run_smoothness_analysis.py   # 平滑性分析（约 1 分钟）
+.venv/Scripts/python.exe 参数搜索/scripts/baseline.py                  # 打印当前基线
 ```
 
 ## 下一步
