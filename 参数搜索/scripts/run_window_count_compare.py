@@ -4,8 +4,9 @@
 每单位误差的位移样本数 = 2·ε·fs·K（K = 码内窗口数）。K 越大，同样误差扰动越多
 样本 ⇒ V 越陡。本实验只改 T_s（窗口数），其余不变：
 
-    配置 A（现状）：T_s = 10 μs → 200 点/周期 → K = 4，占空比 0.25
-    配置 B（本次）：T_s =  5 μs → 100 点/周期 → K = 8，占空比 0.50
+    配置 A（现状）：T_s = 10 μs → 200 点/周期 → K = 4，T_L = 2.50 μs
+    配置 B（本次）：T_s =  5 μs → 100 点/周期 → K = 8，T_L = 1.25 μs
+    两配置**占空比固定 0.25**（T_L = 0.25·T_s 随周期同步缩放），t_0 = T_s/4。
 
 两配置的 T_L = 2.5 μs（50 点）、t_0 = T_s/4（A: 2.5 μs、B: 1.25 μs，相对位置相同，
 保证窗口不跨周期：t_0 + T_L ≤ T_s）。扫描 ε ∈ ±1.25 μs（B 的对称可用范围），
@@ -41,7 +42,7 @@ from isrj_joint_design.matrices import cross_correlation  # noqa: E402
 from isrj_joint_design.params import GlobalParams, generate_isrj_sampling_function  # noqa: E402
 
 N = 800
-TAU_US = 2.5                       # 截取长度（两配置相同）
+DUTY = 0.25                        # 固定占空比：T_L = DUTY·T_s，随 T_s 同步缩放
 CONFIGS = {                        # 名称: T_s [μs]
     "K=4 (Ts=10us)": 10.0,
     "K=8 (Ts=5us)": 5.0,
@@ -56,7 +57,7 @@ GRID = "#d8d7d2"
 
 
 def params_for(t_s_us: float, t0_us: float) -> GlobalParams:
-    return GlobalParams(N=N, tau=TAU_US * 1e-6, T_s=t_s_us * 1e-6,
+    return GlobalParams(N=N, tau=DUTY * t_s_us * 1e-6, T_s=t_s_us * 1e-6,
                         tau_offset=t0_us * 1e-6, seed=0)
 
 
@@ -116,7 +117,7 @@ def main() -> None:
         idx = {e: int(np.argmin(np.abs(ERR - e))) for e in (0.05, 0.1, 0.25, 0.5, 1.0)}
         rows.append({
             "config": name, "ts_us": ts, "windows": int(round(N / (ts * 20))),
-            "duty": TAU_US / ts, "t0_us": ts / 4.0,
+            "duty": DUTY, "tau_us": DUTY * ts, "t0_us": ts / 4.0,
             "psl_db": m["psl_db"], "gain_loss_db": m["processing_gain_loss_db"],
             "valley_db": float(z[i0]),
             "z_0p05": float(z[idx[0.05]]), "rise_0p05": float(z[idx[0.05]] - z[i0]),
@@ -143,7 +144,7 @@ def main() -> None:
     ax.set_xlabel("Window-start error (μs)")
     ax.set_ylabel("Normalized ISRJ level after filtering (dB)")
     ax.set_title("Effect of sampling-window count on the error response "
-                 "(T_L = 2.5 μs fixed)", fontsize=11)
+                 "(duty fixed at 0.25, T_L = 0.25·T_s)", fontsize=11)
     ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
     _style(ax)
     fig.tight_layout()
@@ -156,8 +157,9 @@ def main() -> None:
          "curves": {k: v.tolist() for k, v in curves.items()},
          "summary": rows}, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    lines = ["# 码内采样窗口数对比（T_L = 2.5 μs 不变，只改 T_s）", "",
-             f"扫描 ε ∈ ±1.25 μs（步长 0.05 μs = 1 个采样点）；t_0 基线 = T_s/4。", "",
+    lines = ["# 码内采样窗口数对比（占空比固定 0.25，T_L = 0.25·T_s 随 T_s 缩放）", "",
+             f"扫描 ε ∈ ±1.25 μs（步长 0.05 μs = 1 个采样点）；t_0 基线 = T_s/4。"
+             f"K=4：T_s = 10 μs / T_L = 2.5 μs；K=8：T_s = 5 μs / T_L = 1.25 μs。", "",
              "| 配置 | 窗口数 | 占空比 | PSL (dB) | 损失 (dB) | 谷底 (dB) | ±0.05μs | ±0.25μs | ±0.5μs | ±1.0μs |",
              "|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
