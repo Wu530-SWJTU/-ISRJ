@@ -108,6 +108,7 @@ def main() -> None:
                      "zero_delay_db": zero,
                      "peak_db": float(20 * np.log10(np.abs(r).max() / peak + 1e-30)),
                      "rise_db": float(zero - m["isrj_zero_delay_db"]),
+                     "amp_ratio": float(10 ** (zero / 20)),   # 线性幅度比 = |h^H y_j| / |h^H x|
                      "il": float(np.sum(np.abs(r) ** 2))})
     i0 = int(np.argmin(np.abs(err)))
     print(f"  谷底（ε=0）：{rows[i0]['zero_delay_db']:.2f} dB；"
@@ -116,7 +117,7 @@ def main() -> None:
     print(f"  ±0.1 μs（1 采样点）处：{rows[k10]['zero_delay_db']:.2f} dB"
           f"（抬升 {rows[k10]['rise_db']:.2f} dB）")
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 4.6), facecolor=SURFACE)
+    fig, axes = plt.subplots(1, 3, figsize=(18.5, 4.7), facecolor=SURFACE)
     e = np.array([r["ts_error_us"] for r in rows])
     ax = axes[0]
     ax.plot(e, [r["zero_delay_db"] for r in rows], color=SERIES_1, linewidth=2,
@@ -127,21 +128,36 @@ def main() -> None:
     ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
     ax.set_xlabel("Sampling-period error (μs)")
     ax.set_ylabel("Normalized level (dB)")
-    ax.set_title(f"(a) ISRJ level after filtering (design constraint {args.depth:g} dB)",
+    ax.set_title(f"(a) Level after filtering (design constraint {args.depth:g} dB)",
                  fontsize=11)
-    ax.annotate(f"error range = ±{args.err_percent:g}% × $T_s$ = ±{span:g} μs\n"
-                f"valley = {rows[i0]['zero_delay_db']:.2f} dB (at zero error)",
-                xy=(0.03, 0.06), xycoords="axes fraction", fontsize=9, color=TEXT_PRIMARY)
+    ax.annotate(f"error range = ±{args.err_percent:g}% × $T_s$ = ±{span:g} μs;  "
+                f"valley = {rows[i0]['zero_delay_db']:.2f} dB",
+                xy=(0.03, 0.06), xycoords="axes fraction", fontsize=9,
+                color=TEXT_PRIMARY)
     ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
     style(ax)
 
     ax = axes[1]
+    ax.plot(e, [r["amp_ratio"] for r in rows], color=SERIES_1, linewidth=2,
+            marker="o", markersize=4)
+    ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
+    ax.set_xlabel("Sampling-period error (μs)")
+    ax.set_ylabel("Amplitude ratio  $|h^H y_j| / |h^H x|$")
+    ax.set_title("(b) Linear amplitude of the false target (rel. true target)",
+                 fontsize=11)
+    ax.annotate(f"zero error: {rows[i0]['amp_ratio']:.2e};  "
+                f"±{span:g} μs: {rows[0]['amp_ratio']:.2e} / {rows[-1]['amp_ratio']:.2e}",
+                xy=(0.03, 0.75), xycoords="axes fraction", fontsize=9,
+                color=TEXT_PRIMARY)
+    style(ax)
+
+    ax = axes[2]
     ax.semilogy(e, [r["il"] for r in rows], color=SERIES_1, linewidth=2, marker="o",
                 markersize=4)
     ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
     ax.set_xlabel("Sampling-period error (μs)")
     ax.set_ylabel("IL")
-    ax.set_title("(b) Integrated jamming level", fontsize=11)
+    ax.set_title("(c) Integrated jamming level", fontsize=11)
     style(ax)
 
     fig.tight_layout()
@@ -167,13 +183,14 @@ def main() -> None:
              f"设计对指标：PSL {m['psl_db']:.2f} dB、损失 {m['processing_gain_loss_db']:.2f} dB、"
              f"零延迟 {m['isrj_zero_delay_db']:.2f} dB。",
              f"误差范围 ±{args.err_percent:g}% × T_s = ±{span:g} μs，步长 {args.step_us:g} μs。", "",
-             "| ΔT_s (μs) | 实际 T_s (μs) | 零延迟电平 (dB) | 抬升 (dB) | IL |",
-             "|---|---|---|---|---|"]
+             "| ΔT_s (μs) | 实际 T_s (μs) | 零延迟电平 (dB) | 幅度比 | 抬升 (dB) | IL |",
+             "|---|---|---|---|---|---|"]
     for r in rows:
         if abs(r["ts_error_us"] * 5 - round(r["ts_error_us"] * 5)) > 1e-6:
             continue                       # 表里每 0.2 μs 取一行
         lines.append(f"| {r['ts_error_us']:+.2f} | {r['ts_us']:.2f} | "
-                     f"{r['zero_delay_db']:.2f} | {r['rise_db']:+.2f} | {r['il']:.3e} |")
+                     f"{r['zero_delay_db']:.2f} | {r['amp_ratio']:.3e} | "
+                     f"{r['rise_db']:+.2f} | {r['il']:.3e} |")
     (OUTDIR / f"结果表_{abs(args.depth):g}dB.md").write_text("\n".join(lines) + "\n",
                                                              encoding="utf-8")
     print("  JSON 与结果表已保存")
