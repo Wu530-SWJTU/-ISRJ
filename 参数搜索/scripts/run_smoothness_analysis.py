@@ -1,14 +1,15 @@
 """三维平滑性分析：θ = [t_0, d, T_s] 上的代价曲面有多"光滑"。
 
-固定设计对（t_0 = 2.5 μs、T_s = 10 μs、T_L = 2.5 μs、random_phase、seed=0），扫实际
+固定设计对取搜索线基线 v2（见 scripts/baseline.py：B = 10 MHz、L = 256、t_0 = 2 μs、
+T_L = 1.5 μs、T_s = 6.4 μs、约束 −80 dB、random_phase、seed = 0），扫实际
 干扰参数（录波口径）：z(θ*) = 20lg( |h^H y_j(θ*)| / |h^H x| )。矩阵链未变：
 J(θ) = diag(j(θ))、H_j = H·diag(j(θ))、X_j 由 x⊙j 铺成。
 
 四项分析（都是搜索算法直接关心的性质）：
 
 1. **量化台阶**：`N_tau = round(T_L·fs)` 等全部取整 ⇒ 曲面的真实分辨率是 **1 个采样点**，
-   低于此步长时梯度恒为 0（分段常数 + 跳变）。细扫（步长 0.1 采样点）统计零差分比例。
-   1 采样点 = 0.05 μs（t_0、T_s）；对 d 为 1/(T_s·fs) = 0.005。
+   低于此步长时梯度恒为 0（分段常数 + 跳变）。细扫（跨度 ±1 采样点、410 步）统计零差分比例。
+   1 采样点 = 0.1 μs（t_0、T_s）；对 d 为 1/(T_s·fs) = 1/64。
 2. **曲率**（二阶差分，步长取 1 采样点，避开量化）：沿三轴统计中位数/极值
    ⇒ 哪一维光滑、哪一维陡（单位 dB/(采样点)²）。
 3. **局部极小个数**（11×11×11 网格 + 26 邻域严格比较）⇒ 是否存在多个盆地。
@@ -35,16 +36,20 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from isrj_joint_design.matrices import cross_correlation  # noqa: E402
-from isrj_joint_design.params import GlobalParams, generate_isrj_sampling_function  # noqa: E402
+from isrj_joint_design.params import generate_isrj_sampling_function  # noqa: E402
 
-N = 800
-FS = 20e6
-T0_US, TS_US, TAU_US = 2.5, 10.0, 2.5
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import baseline  # noqa: E402
+
+N = baseline.N
+FS = baseline.FS_HZ
+T0_US, TS_US, TAU_US = baseline.T0_US, baseline.TS_US, baseline.TAU_US
 D_DESIGN = TAU_US / TS_US
-DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "窗口起点" / "joint_design_result_t0_2.5us.npz"
+DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "设计对" / "joint_design_v2_t0_2us.npz"
 OUTDIR = ROOT / "参数搜索" / "结果" / "平滑性"
-SAMPLE_US = 1e6 / FS          # 1 个采样点的时长 = 0.05 μs
-SAMPLE_D = 1.0 / (TS_US * 1e-6 * FS)   # d 的 1 采样点步长 = 0.005
+SAMPLE_US = baseline.SAMPLE_US                  # 1 个采样点 = 0.1 μs
+SAMPLE_D = SAMPLE_US / TS_US                    # d 的 1 采样点步长 = 1/64
 SERIES_1, SERIES_2, SERIES_3 = "#2a78d6", "#eb6834", "#3f9142"
 AXES = ("t0", "ts", "d")
 AXES_NAME = {"t0": "t_0", "ts": "T_s", "d": "d"}
@@ -53,17 +58,16 @@ SURFACE, GRID_C = "#fcfcfb", "#d8d7d2"
 
 
 def level(x, h, e_t0=0.0, ed=0.0, e_ts=0.0):
-    """三个误差都以"点/采样点"为单位给出，便于按量化步长扫描。"""
-    p = GlobalParams(N=N, tau=(D_DESIGN + ed) * TS_US * 1e-6,
-                     T_s=TS_US * 1e-6 + e_ts * SAMPLE_US * 1e-6,
-                     tau_offset=(T0_US + e_t0 * SAMPLE_US) * 1e-6, seed=0)
+    """三个误差都以采样点为单位（e_t0/e_ts 直接是点；ed 为 d 误差，乘 SAMPLE_D 折算）。"""
+    p = baseline.params_for(t0_us=T0_US + e_t0 * SAMPLE_US,
+                            tau_us=(D_DESIGN + ed) * TS_US,
+                            ts_us=TS_US + e_ts * SAMPLE_US)
     r = cross_correlation(x * generate_isrj_sampling_function(p), h)
     return float(20 * np.log10(abs(r[N - 1]) / abs(np.vdot(h, x)) + 1e-30))
 
 
 def staircase(x, h, axis, n_steps=41, span=2.0):
-    """以 0.1 采样点步长细扫，返回 (误差[点], 电平, 零差分比例, 台阶级数)。"""
-    # span = 总跨度（采样点数）；步长 0.1 点
+    """细扫（跨度 span 个采样点、n_steps×10 步），返回 (误差[点], 电平, 零差分比例, 台阶级数)。"""
     errs = np.linspace(-span / 2, span / 2, n_steps * 10 + 1)
     z = []
     for e in errs:
@@ -80,7 +84,7 @@ def staircase(x, h, axis, n_steps=41, span=2.0):
     return errs, z, zero_frac, steps
 
 
-def curvature(x, h, axis, base_pts=(-6, -4, -2, 2, 4, 6)):
+def curvature(x, h, axis, base_pts=(-4, -3, -2, 2, 3, 4)):
     """二阶差分（步长 = 1 采样点）：返回中位数与极值 [dB/(采样点)²]。"""
     vals = []
     for b in base_pts:
@@ -126,10 +130,10 @@ def main() -> None:
 
     # --- 2b) 微粗糙度：1 采样点尺度上增量符号翻转多少次 ---
     print()
-    print("[2b] 微粗糙度（1 采样点步长，±20 点范围）")
+    print("[2b] 微粗糙度（1 采样点步长，±5 点范围）")
     rough = {}
     for axis in AXES:
-        k = np.arange(-20, 21)
+        k = np.arange(-5, 6)
         zz = np.array([level(x, h, e_t0=float(q)) if axis == "t0" else
                        (level(x, h, e_ts=float(q)) if axis == "ts" else
                         level(x, h, ed=float(q) * SAMPLE_D)) for q in k])
@@ -145,9 +149,9 @@ def main() -> None:
 
     # --- 3) 三维网格 + 局部极小 ---
     print("\n[3] 三维网格与局部极小（11×11×11）")
-    g_t0 = np.linspace(-20, 20, 11)          # ±1 μs（20 采样点）
-    g_d = np.linspace(-20, 20, 11)           # ±0.1（d 的 1 步 = 1 采样点/T_s·fs）
-    g_ts = np.linspace(-20, 20, 11)
+    g_t0 = np.linspace(-5, 5, 11)            # ±0.5 μs（5 采样点）
+    g_d = np.linspace(-5, 5, 11)             # ±0.078（5 采样点 × SAMPLE_D）
+    g_ts = np.linspace(-5, 5, 11)
     Z = np.zeros((11, 11, 11))
     for i, a in enumerate(g_t0):
         for j, b in enumerate(g_d):
@@ -229,7 +233,7 @@ def main() -> None:
     for axis, name, color in (("t0", r"$\Delta t_0$", SERIES_1),
                               ("ts", r"$\Delta T_s$", SERIES_2),
                               ("d", r"$\Delta d$  (× 1/200)", SERIES_3)):
-        k = np.arange(-20, 21)
+        k = np.arange(-5, 6)
         zz = [level(x, h, e_t0=float(q)) if axis == "t0" else
               (level(x, h, e_ts=float(q)) if axis == "ts" else
                level(x, h, ed=float(q) * SAMPLE_D)) for q in k]
@@ -283,7 +287,8 @@ def main() -> None:
 
     lines = [
         "# 三维平滑性分析（θ = [t_0, d, T_s]）", "",
-        f"设计对：`{DESIGN_NPZ.name}`（t_0 = 2.5 μs、T_s = 10 μs、T_L = 2.5 μs）。"
+        f"设计对：`{DESIGN_NPZ.name}`（B = {baseline.B_HZ / 1e6:g} MHz、L = {N}、t_0 = {T0_US:g} μs、"
+             f"T_L = {TAU_US:g} μs、T_s = {TS_US:g} μs、约束 {baseline.PEAK_INTERF_DB:g} dB）。"
         f"把「参数估偏了，抗干扰性能掉多少」这张曲面，按搜索算法关心的角度体检一遍。", "",
         "## 一句话结论", "",
         "- **t_0（转发时间）与 T_s（采样周期）——规矩、好搜**：偏离后性能平滑变差，"

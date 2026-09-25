@@ -1,21 +1,19 @@
-"""窗口起点 t_0 估计误差扫描：归一化电平 – t_0（搜索线 · 新项目第一个实验）。
+"""窗口起点 t_0 估计误差扫描：归一化电平 – t_0（搜索线 v2 · 对齐 Zhou 2026）。
 
-设计假设 t_0 = 2.5 μs（窗口 [2.5, 5) μs），实际窗口起点取 2.5 + ε μs，
-ε ∈ [−2.5, +2.5]（实际 t_0 ∈ [0, 5] μs，仍在合法范围 [0, 7.5] μs 内：
-窗口不得跨周期，N_tau_offset + N_tau ≤ N_Ts）。
+设计对来自基线单一来源 `scripts/baseline.py`：
+    B = 10 MHz、T_p = 25.6 μs、码长 L = 256、fs = B ⇒ 1 采样点 = 0.1 μs
+    t_0 = 2 μs（20 点）、T_L = 1.5 μs（15 点）、T_s = 6.4 μs（64 点/周期，码内 4 片）
+    占空比 d = 0.234、零延迟干扰约束 b_min = b_max·10⁻⁴（−80 dB）
 
-干扰模型（与复现线共用同一套公式，只换窗口起点）：
+实际窗口起点取 t_0 + ε（默认扫 ±1.0 μs；论文 Fig.12 的误差区间是 ±0.5 μs）。
+
+干扰模型（**零延迟原位**，与复现线共用公式，只换窗口起点）：
     信号级：j(θ)[n] = 1 ⟺ mod(n, N_Ts) ∈ [N_tau_offset, N_tau_offset + N_tau)
             y_j(θ) = x ⊙ j(θ)
     矩阵级：J(θ) = diag(j(θ))，H_j = H·diag(j(θ))，X_j 由 x⊙j 铺成
-    t_0 = 2.5 μs 时：N_Ts = 200（10 μs）、N_tau = 50（2.5 μs）、
-    N_tau_offset = 50（2.5 μs）→ 每周期采样 [50, 100) 点，即窗口 [2.5, 5) μs
 
 归一化分母：|h^H x| = b_max = N（主瓣硬约束钉死，不随误差变化）
 搜索线代价：C = 10^(isrj_peak_db / 20)
-
-注：复现线 params.py 的默认 tau_offset 保持 0（PRD 验收基线，不可改），
-本项目的 t_0 = 2.5 μs 由本脚本显式传入。
 
 用法：
     .venv/Scripts/python.exe 参数搜索/scripts/run_t0_sweep.py
@@ -32,25 +30,22 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(HERE))
 
 import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+import baseline  # noqa: E402
+from baseline import N, SEED, T0_US as T0_DESIGN_US, TAU_US, TS_US  # noqa: E402
 from isrj_joint_design.joint_design import compute_metrics, joint_design_algorithm  # noqa: E402
 from isrj_joint_design.matrices import cross_correlation  # noqa: E402
-from isrj_joint_design.params import GlobalParams, generate_isrj_sampling_function  # noqa: E402
-
-# ---- 搜索线口径常量（新项目基线）----
-T0_DESIGN_US = 2.5          # 设计假设的窗口起点 [μs]
-TAU_US = 2.5                # 截取长度 [μs]
-TS_US = 10.0                # 采样重复周期 [μs]
-N = 800                     # 码长（论文规模）
-SEED = 0                    # 设计随机种子（记录在 JSON 里，保证可复现）
+from isrj_joint_design.params import generate_isrj_sampling_function  # noqa: E402
 
 OUTDIR = ROOT / "参数搜索" / "结果" / "窗口起点"
-DESIGN_NPZ = OUTDIR / f"joint_design_result_t0_{T0_DESIGN_US:g}us.npz"
+DESIGN_NPZ = OUTDIR / "joint_design_v2_t0_2us.npz"
 
 # 与复现线一致的绘图配色（plotting.py 的 SERIES_1/2）
 SERIES_1 = "#2a78d6"
@@ -61,14 +56,13 @@ SURFACE = "#fcfcfb"
 GRID = "#d8d7d2"
 
 
-def params_for(t0_us: float) -> GlobalParams:
-    """给定窗口起点构造参数（其余保持论文/PRD 基线）。"""
-    return GlobalParams(N=N, tau=TAU_US * 1e-6, T_s=TS_US * 1e-6,
-                        tau_offset=t0_us * 1e-6, seed=SEED)
+def params_for(t0_us: float):
+    """给定窗口起点构造参数（其余取搜索线基线 v2，见 baseline.py）。"""
+    return baseline.params_for(t0_us=t0_us)
 
 
 def design(force: bool) -> tuple:
-    """t_0 = 2.5 μs 的联合设计（有存档则直接加载）。"""
+    """基线 v2 的联合设计（有存档则直接加载）。"""
     if DESIGN_NPZ.exists() and not force:
         d = np.load(DESIGN_NPZ)
         print(f"  加载已有设计：{DESIGN_NPZ.name}")
@@ -134,9 +128,10 @@ def plot(rows: list, save_path: Path) -> None:
     # 避免两条曲线重叠导致下面那条不可见。
     ax.plot(err, peak, color=SERIES_2, linestyle="none", marker="s", markersize=3,
             label="overall peak (= zero-delay)")
-    ax.axhline(-30, color=TEXT_SECONDARY, linewidth=1.0, linestyle="-.")
+    ax.axhline(baseline.PEAK_INTERF_DB, color=TEXT_SECONDARY, linewidth=1.0,
+               linestyle="-.")
     ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
-    lo = max(-60, np.floor(np.min(zero) / 10) * 10 - 5)
+    lo = max(-100, np.floor(np.min(zero) / 10) * 10 - 5)
     ax.set_ylim(lo, 5)
     ax.annotate(f"design baseline $t_0$ = {T0_DESIGN_US:g} $\\mu$s (zero error)\n"
                 f"zero-delay at baseline = {zero[np.argmin(np.abs(err))]:.2f} dB",
@@ -170,6 +165,7 @@ def write_table(rows: list, save_path: Path) -> None:
         f"# 归一化电平 – 窗口起点 t_0（设计基线 t_0 = {T0_DESIGN_US:g} μs）",
         "",
         f"设计：N={N}、M=100、init=random_phase、seed={SEED}；"
+        f"B = {baseline.B_HZ / 1e6:g} MHz、T_p = {baseline.T_P_S * 1e6:g} μs、"
         f"截取长度 {TAU_US:g} μs、采样周期 {TS_US:g} μs、占空比 "
         f"{TAU_US / TS_US:.2f}。归一化分母 = $|h^H x|$ = b_max = N。",
         "",
@@ -189,9 +185,10 @@ def write_table(rows: list, save_path: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--min", type=float, default=-2.5, help="t_0 误差下界 [μs]")
-    ap.add_argument("--max", type=float, default=2.5, help="t_0 误差上界 [μs]")
-    ap.add_argument("--step", type=float, default=0.1, help="t_0 误差步长 [μs]")
+    ap.add_argument("--min", type=float, default=-1.0, help="t_0 误差下界 [μs]")
+    ap.add_argument("--max", type=float, default=1.0, help="t_0 误差上界 [μs]")
+    ap.add_argument("--step", type=float, default=0.1,
+                    help="t_0 误差步长 [μs]（1 采样点 = 0.1 μs）")
     ap.add_argument("--redesign", action="store_true", help="忽略存档，重跑联合设计")
     args = ap.parse_args()
 
@@ -199,7 +196,8 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    print("=== 窗口起点 t_0 估计误差扫描（搜索线）===")
+    print("=== 窗口起点 t_0 估计误差扫描（搜索线 v2）===")
+    print("  " + baseline.summary().replace(chr(10), chr(10) + "  "))
     x, h, j, result = design(args.redesign)
 
     if result is not None:
