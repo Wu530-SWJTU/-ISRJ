@@ -2,7 +2,7 @@
 
 口径：搜索线基线 v2（`scripts/baseline.py`）的**信号侧与干扰侧参数**（B = 10 MHz、
 L = 256、t_0 = 2 μs、T_L = 1.5 μs、T_s = 6.4 μs），约束深度可用 `--depth` 指定
-（默认 **−30 dB**，即把 −30 dB 配置单独拎出来）；初始化 random_phase、seed 0。
+（默认跟随基线 `baseline.PEAK_INTERF_DB` = **−80 dB**）；初始化 random_phase、seed 0。
 
 固定设计对（录波口径）：用该约束下的设计对评估**实际**采样周期偏离时的性能：
 
@@ -14,7 +14,7 @@ L = 256、t_0 = 2 μs、T_L = 1.5 μs、T_s = 6.4 μs），约束深度可用 `-
 
 用法：
     .venv/Scripts/python.exe 参数搜索/scripts/run_ts_sweep.py
-    .venv/Scripts/python.exe 参数搜索/scripts/run_ts_sweep.py --depth -80 --err-percent 10
+    .venv/Scripts/python.exe 参数搜索/scripts/run_ts_sweep.py --depth -30 --err-percent 10  # 换约束深度
 """
 
 from __future__ import annotations
@@ -75,7 +75,8 @@ def style(ax) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--depth", type=float, default=-30.0, help="零延迟干扰约束 [dB]")
+    ap.add_argument("--depth", type=float, default=baseline.PEAK_INTERF_DB,
+                    help="零延迟干扰约束 [dB]（默认跟随基线）")
     ap.add_argument("--err-percent", type=float, default=10.0,
                     help="误差范围 = ±p%% × T_s（默认 10%%）")
     ap.add_argument("--step-us", type=float, default=0.04, help="误差步长 [μs]")
