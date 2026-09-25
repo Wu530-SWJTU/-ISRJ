@@ -130,6 +130,9 @@ def main() -> None:
     ax.set_ylabel("Normalized level (dB)")
     ax.set_title(f"(a) Level after filtering (design constraint {args.depth:g} dB)",
                  fontsize=11)
+    for side in (-1, 1):
+        ax.axvline(side * baseline.SAMPLE_US / 2, color=SERIES_2, linewidth=1.2,
+                   linestyle=":", alpha=0.9)
     ax.annotate(f"error range = ±{args.err_percent:g}% × $T_s$ = ±{span:g} μs;  "
                 f"valley = {rows[i0]['zero_delay_db']:.2f} dB",
                 xy=(0.03, 0.06), xycoords="axes fraction", fontsize=9,
@@ -145,6 +148,9 @@ def main() -> None:
     ax.set_ylabel("Amplitude ratio  $|h^H y_j| / |h^H x|$")
     ax.set_title("(b) Linear amplitude of the false target (rel. true target)",
                  fontsize=11)
+    for side in (-1, 1):
+        ax.axvline(side * baseline.SAMPLE_US / 2, color=SERIES_2, linewidth=1.2,
+                   linestyle=":", alpha=0.9)
     ax.annotate(f"zero error: {rows[i0]['amp_ratio']:.2e};  "
                 f"±{span:g} μs: {rows[0]['amp_ratio']:.2e} / {rows[-1]['amp_ratio']:.2e}",
                 xy=(0.03, 0.75), xycoords="axes fraction", fontsize=9,
@@ -160,7 +166,12 @@ def main() -> None:
     ax.set_title("(c) Integrated jamming level", fontsize=11)
     style(ax)
 
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    fig.text(0.5, 0.012,
+             "dotted lines: ±0.5 sample point (±0.05 μs) — inside this band "
+             "round(T_s·f_s) is unchanged, so the level is bit-identical;  "
+             "one sample point = 0.1 μs",
+             ha="center", fontsize=9, color=SERIES_2)
     out = OUTDIR / f"采样周期误差扫描_约束{abs(args.depth):g}dB.png"
     fig.savefig(out, dpi=150, facecolor=SURFACE)
     plt.close(fig)
