@@ -10,7 +10,9 @@ L = 256、t_0 = 2 μs、T_L = 1.5 μs、T_s = 6.4 μs），约束深度可用 `-
 
 矩阵链（零延迟原位，未变）：J(θ) = diag(j(θ))、H_j = H·diag(j(θ))、X_j 由 x⊙j 铺成。
 
-误差范围：**±p% × T_s**（`--err-percent`，默认 10% ⇒ ±0.64 μs），步长 `--step-us`（默认 0.04 μs）。
+误差范围：**±p% × T_s**（`--err-percent`，默认 10%），步长 `--step-us`（**默认 1 个采样点
+= 0.1 μs**，取点全部落在采样网格上 ⇒ 每个点代表一个量化平台，曲线是干净的折线）。
+范围会向下对齐到步长的整数倍（10% ⇒ ±0.6 μs，共 13 点）。
 
 用法：
     .venv/Scripts/python.exe 参数搜索/scripts/run_ts_sweep.py
@@ -87,7 +89,8 @@ def main() -> None:
                     help="零延迟干扰约束 [dB]（默认跟随基线）")
     ap.add_argument("--err-percent", type=float, default=10.0,
                     help="误差范围 = ±p%% × T_s（默认 10%%）")
-    ap.add_argument("--step-us", type=float, default=0.04, help="误差步长 [μs]")
+    ap.add_argument("--step-us", type=float, default=baseline.SAMPLE_US,
+                    help="误差步长 [μs]（默认 1 个采样点 = 0.1 μs，取点落在采样网格上）")
     ap.add_argument("--annotate", action="store_true",
                     help="叠加标记点/平台边界虚线/说明（默认：纯折线）")
     args = ap.parse_args()
@@ -97,6 +100,9 @@ def main() -> None:
     OUTDIR.mkdir(parents=True, exist_ok=True)
 
     span = baseline.TS_US * args.err_percent / 100.0
+    # 把范围对齐到步长的整数倍（默认步长 = 1 采样点 ⇒ 取点全落在采样网格上）
+    n_side = int(np.floor(span / args.step_us + 1e-9))
+    span = n_side * args.step_us
     err = np.arange(-span, span + args.step_us / 2, args.step_us)
     print(f"=== 采样周期误差扫描（约束 {args.depth:g} dB，误差 ±{span:g} μs "
           f"= ±{args.err_percent:g}% × T_s）===")
