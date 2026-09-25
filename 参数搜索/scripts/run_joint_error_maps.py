@@ -10,7 +10,8 @@
 横轴用**物理量误差 μs**（t_0 / T_L / T_s）；占空比 d = T_L/T_s 是派生量，
 在 T_s 固定的图上等价于 T_L（Δd = ΔT_L/T_s）。
 
-网格：三个误差各 ±0.5 μs（论文 Fig.12 的误差区间），步长 0.05 μs（= 半个采样点）。
+网格：三个误差各 ±0.5 μs（论文 Fig.12 的误差区间），步长 **1 个采样点 = 0.1 μs**（11×11，
+取点全部落在采样网格上，每个点代表一个量化平台）。
 
 设计对若不存在会自动跑一次联合设计（约 5 s，N=256）并存到 `结果/设计对/`。
 
@@ -36,7 +37,7 @@ from isrj_joint_design.joint_design import joint_design_algorithm  # noqa: E402
 from isrj_joint_design.matrices import cross_correlation  # noqa: E402
 from isrj_joint_design.params import generate_isrj_sampling_function  # noqa: E402
 
-GRID = np.arange(-0.5, 0.5001, 0.05)          # 三个误差共用的网格 [μs]
+GRID = np.arange(-0.5, 0.5001, baseline.SAMPLE_US)   # 三个误差共用的网格 [μs]，步长 1 个采样点
 DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "设计对" / "joint_design_v2_t0_2us.npz"
 OUTDIR = ROOT / "参数搜索" / "结果" / "联合误差"
 
@@ -117,7 +118,7 @@ def main() -> None:
              f"T_p = {baseline.T_P_S * 1e6:g} μs、L = {baseline.N}、"
              f"t_0 = {baseline.T0_US:g} μs、T_L = {baseline.TAU_US:g} μs、"
              f"T_s = {baseline.TS_US:g} μs、约束 {baseline.PEAK_INTERF_DB:g} dB）。",
-             f"三个误差各扫 ±0.5 μs（步长 0.05 μs），网格 21×21。", "",
+             f"三个误差各扫 ±0.5 μs（步长 1 个采样点 = 0.1 μs），网格 11×11。", "",
              "| 参数对 | 设计点 (dB) | 全图最小 (dB) | 最小值位置 | 形态 |", "|---|---|---|---|---|"]
     for key, xl, yl, _ in maps:
         r = out[key]["summary"]
