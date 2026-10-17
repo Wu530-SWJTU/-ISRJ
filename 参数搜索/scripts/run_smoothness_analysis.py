@@ -46,8 +46,8 @@ N = baseline.N
 FS = baseline.FS_HZ
 T0_US, TS_US, TAU_US = baseline.T0_US, baseline.TS_US, baseline.TAU_US
 D_DESIGN = TAU_US / TS_US
-DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "设计对" / "joint_design_v2_t0_2us.npz"
-OUTDIR = ROOT / "参数搜索" / "结果" / "平滑性"
+DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "参数调制" / "设计对" / "joint_design_v2_t0_2us.npz"
+OUTDIR = ROOT / "参数搜索" / "结果" / "参数调制" / "平滑性"
 SAMPLE_US = baseline.SAMPLE_US                  # 1 个采样点 = 0.1 μs
 SAMPLE_D = SAMPLE_US / TS_US                    # d 的 1 采样点步长 = 1/64
 SERIES_1, SERIES_2, SERIES_3 = "#2a78d6", "#eb6834", "#3f9142"

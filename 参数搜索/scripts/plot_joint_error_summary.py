@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTDIR = ROOT / "参数搜索" / "结果" / "联合误差"
+OUTDIR = ROOT / "参数搜索" / "结果" / "参数调制" / "联合误差"
 
 import matplotlib  # noqa: E402
 matplotlib.use("Agg")

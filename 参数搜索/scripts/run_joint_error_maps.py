@@ -38,8 +38,8 @@ from isrj_joint_design.matrices import cross_correlation  # noqa: E402
 from isrj_joint_design.params import generate_isrj_sampling_function  # noqa: E402
 
 GRID = np.arange(-0.5, 0.5001, baseline.SAMPLE_US)   # 三个误差共用的网格 [μs]，步长 1 个采样点
-DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "设计对" / "joint_design_v2_t0_2us.npz"
-OUTDIR = ROOT / "参数搜索" / "结果" / "联合误差"
+DESIGN_NPZ = ROOT / "参数搜索" / "结果" / "参数调制" / "设计对" / "joint_design_v2_t0_2us.npz"
+OUTDIR = ROOT / "参数搜索" / "结果" / "参数调制" / "联合误差"
 
 
 def design_or_load() -> tuple:

@@ -67,6 +67,30 @@ def params_for(t0_us: float | None = None, tau_us: float | None = None,
     return GlobalParams(**kw)
 
 
+def lfm_waveform() -> np.ndarray:
+    """场景用基准 LFM 波形：x[n] = exp(jπB t²/T_p)，fs = B，单位模。
+
+    对抗场景（参数搜索/结果/对抗场景/）里"正常雷达"的发射波形。
+    与联合设计对 `x`（为失配滤波 h 设计）不同：LFM 是常规雷达波形，
+    场景叙事为 常规雷达(LFM) 被干扰 → 联合设计波形+失配滤波抗干扰。
+    """
+    import numpy as np
+    t = np.arange(N) / FS_HZ                       # 采样间隔 1/B
+    return np.exp(1j * np.pi * B_HZ * t ** 2 / T_P_S)
+
+
+def random_phase_waveform(seed: int = 0) -> np.ndarray:
+    """场景用随机相位波形：x[n] = exp(jφ_n)，φ_n ~ U[0, 2π)，单位模。
+
+    对抗场景 2026-10-01 用户改：常规雷达波形换成随机相位（未优化）。
+    与 LFM 的关键差别：无频率选择性 ⇒ ISRJ 直发转发的假目标串
+    （m = 0, ±1, ±2, ±3）全部出现，不会被时频耦合压制。
+    """
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    return np.exp(1j * 2 * np.pi * rng.random(N))
+
+
 def derived() -> dict:
     """派生量（点数），用于打印与文档核对。"""
     return {

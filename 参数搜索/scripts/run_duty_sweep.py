@@ -40,9 +40,9 @@ from isrj_joint_design.params import generate_isrj_sampling_function  # noqa: E4
 
 D0 = baseline.TAU_US / baseline.TS_US                 # 基线占空比 0.234
 STEP_D = baseline.SAMPLE_US / baseline.TS_US          # 1 个采样点的等价 d 步长 = 1/64
-DESIGN_DIR = ROOT / "参数搜索" / "结果" / "设计对"
-OUTDIR = ROOT / "参数搜索" / "结果" / "占空比扫描"
-SERIES_1, SERIES_2 = "#2a78d6", "#eb6834"
+DESIGN_DIR = ROOT / "参数搜索" / "结果" / "参数调制" / "设计对"
+OUTDIR = ROOT / "参数搜索" / "结果" / "参数调制" / "占空比扫描"
+SERIES_1 = "#2a78d6"
 TEXT_PRIMARY, TEXT_SECONDARY = "#0b0b0b", "#52514e"
 SURFACE, GRID_C = "#fcfcfb", "#d8d7d2"
 
@@ -118,49 +118,21 @@ def main() -> None:
           f"{rows[-1]['zero_delay_db']:.2f} dB")
 
     e = np.array([r["d_error"] for r in rows])
-    fig, axes = plt.subplots(1, 3, figsize=(18.5, 4.7), facecolor=SURFACE)
+    fig, ax = plt.subplots(1, 1, figsize=(7.2, 4.7), facecolor=SURFACE)
 
-    ax = axes[0]
-    if args.annotate:
-        ax.plot(e, [r["peak_db"] for r in rows], color=SERIES_2, linestyle="none",
-                marker="s", markersize=3, label="overall peak (= zero-delay)")
     ax.plot(e, [r["zero_delay_db"] for r in rows], color=SERIES_1, linewidth=2,
-            label="zero-delay level")
+            marker="o", markersize=4, label="zero-delay level")
     ax.axhline(args.depth, color=TEXT_SECONDARY, linewidth=1.0,
                linestyle="-.")
     ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
     ax.set_xlabel("Duty-cycle error Δd")
     ax.set_ylabel("Normalized level (dB)")
-    ax.set_title(f"(a) Level after filtering (design constraint "
-                 f"{args.depth:g} dB)", fontsize=11)
+    ax.set_title(f"Level after filtering (design constraint {args.depth:g} dB)",
+                 fontsize=11)
     ax.annotate(f"$d$ = {D0:.4f} ($T_L$ = {baseline.TAU_US:g} μs) at zero error; "
                 f"valley = {rows[i0]['zero_delay_db']:.2f} dB",
                 xy=(0.03, 0.06), xycoords="axes fraction", fontsize=9, color=TEXT_PRIMARY)
     ax.legend(frameon=False, fontsize=9, labelcolor=TEXT_SECONDARY)
-    style(ax)
-
-    ax = axes[1]
-    ax.plot(e, [r["amp_ratio"] for r in rows], color=SERIES_1, linewidth=2,
-            marker="o" if args.annotate else None, markersize=4)
-    ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
-    ax.set_xlabel("Duty-cycle error Δd")
-    ax.set_ylabel("Amplitude ratio  $|h^H y_j| / |h^H x|$")
-    ax.set_title("(b) Linear amplitude of the false target (rel. true target)",
-                 fontsize=11)
-    ax.annotate(f"zero error: {rows[i0]['amp_ratio']:.2e};  "
-                f"±{args.steps * STEP_D:.4f}: {rows[0]['amp_ratio']:.2e} / "
-                f"{rows[-1]['amp_ratio']:.2e}",
-                xy=(0.03, 0.75), xycoords="axes fraction", fontsize=9,
-                color=TEXT_PRIMARY)
-    style(ax)
-
-    ax = axes[2]
-    ax.semilogy(e, [r["il"] for r in rows], color=SERIES_1, linewidth=2,
-                marker="o" if args.annotate else None, markersize=4)
-    ax.axvline(0.0, color=TEXT_SECONDARY, linewidth=1.0, linestyle="--", alpha=0.8)
-    ax.set_xlabel("Duty-cycle error Δd")
-    ax.set_ylabel("IL")
-    ax.set_title("(c) Integrated jamming level", fontsize=11)
     style(ax)
 
     fig.tight_layout()
