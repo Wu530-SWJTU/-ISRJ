@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""对抗场景：WJPS 展宽的完整 (x, h) 联合设计（已定稿口径，2026-10-17）。
+"""对抗场景：WJPS 展宽的完整 (x, h) 联合设计（已定稿口径，2026-10-25）。
 
-口径（见 docs/adr/0005–0008）
+口径（见 docs/adr/0005–0011）
     度量     假目标 lag 上的电平（取法 1）
-    电平块   逐档平方和（ADR-0006）
-    归一化   κ = trace(E)/trace(L)，固定；比例旋钮 γ（ADR-0007），默认 0.3
+    电平块   逐档模平方和（ADR-0006）
+    归一化   κ = trace(E)/trace(L)，固定；比例旋钮 γ（ADR-0007），默认 0.6（ADR-0010）
+    权重     初始 1:3:6:3:1（自然顺序），再按次序反馈自适应（ADR-0010/0012）
     约束     复合掩膜 ĵ = Σ_m ω_m j_m（ADR-0008）
     b_min    −50 dB（ADR-0009，场景展宽专用；`baseline.py` 的全局基线仍是 −80）
 
@@ -20,13 +21,14 @@
     L_Q = Σ_m ω_m Σ_{ℓ∈假目标} v_{ℓ,m} v_{ℓ,m}^H
     L_P = Σ_m ω_m Σ_{ℓ∈假目标} g_{ℓ,m} g_{ℓ,m}^H ,  g_{ℓ,m} = j_m ⊙ Σ_r shift(ℓ − d_r)(h)
     L̂   = L × trace(E)/trace(L)          ← 每轮用当前 x/h 重算
-    ω_m ∝ 1 + |Δ_m|                      ← 3:2:1:2:3（误差越大权重越大）
+    ω_m（自然顺序 Δ = −2,−1,0,+1,+2） = 1:3:6:3:1   ← 中心加权，保证平缓 V（ADR-0010）
 
 约束（复合）
     ⟨h, x⟩ = b_max,  ⟨h, v_ℓ(ĵ)⟩ = b_min,  ℓ ∈ {0} ∪ 假目标 lag,  ĵ = Σ_m ω_m j_m
 
 用法
-    .venv/Scripts/python.exe 参数搜索/scripts/run_scene_wjps.py [--gamma 0.3] [--m-outer 100]
+    .venv/Scripts/python.exe 参数搜索/scripts/run_scene_wjps.py
+        [--gamma 0.6] [--bmin -50] [--m-outer 100] [--max-rounds 5] [--no-feedback]
 """
 
 from __future__ import annotations
@@ -79,17 +81,68 @@ def n_retx(n_ts: int) -> int:
     return max(min(R_MAX, n_ts // BASE["T_L"] - 1), 1)
 
 
-def family() -> list:
-    """[(掩膜, 转发偏移, 权重)]，零误差档排第一。"""
-    W = {e: 1 + abs(e) for e in DEL}
-    s = sum(W.values())
+# 初始权重（自然顺序 Δ = −2,−1,0,+1,+2）：中心最大、向两侧递减（ADR-0010）。
+W_INIT = {-2: 1.0, -1: 3.0, 0: 6.0, 1: 3.0, 2: 1.0}
+
+
+def family(nat: dict | None = None) -> list:
+    """[(掩膜, 转发偏移, 权重)]，零误差档排第一。
+
+    权重按自然顺序（Δ = −2,−1,0,+1,+2）给出；默认 `W_INIT = 1:3:6:3:1`。
+    实际权重由 `design_with_feedback` 按测得的电平反馈调整（ADR-0012）。
+    """
+    nat = W_INIT if nat is None else nat
+    s = sum(nat.values())
     out = []
     for e in ORDER:
         ts = BASE["T_s"] + e
         out.append((build_mask(BASE["t_0"], BASE["T_L"], ts),
                     [r * BASE["T_L"] for r in range(1, n_retx(ts) + 1)],
-                    W[e] / s))
+                    nat[e] / s))
     return out
+
+
+def is_v(levels5: list) -> bool:
+    """严格平缓 V：中心最低，向两侧单调抬升（dB 越负越好）。"""
+    lv = levels5
+    return (lv[0] > lv[1] > lv[2]) and (lv[2] < lv[3] < lv[4])
+
+
+def design_with_feedback(params, gamma: float, max_rounds: int = 5,
+                         nat: dict | None = None, verbose: bool = True) -> dict:
+    """次序反馈：目标函数形式不变，按测得电平调整权重，直到形成 V（ADR-0012）。
+
+    每轮：中心权重 ×1.6（上限 40）；凡是低于中心的档位权重 ×0.6（下限 0.2）。
+    """
+    nat = dict(W_INIT if nat is None else nat)
+    hist = []
+    for rnd in range(max_rounds):
+        fam = family(nat)
+        j_hat = sum(w * j for j, _, w in fam)
+        res = joint_design_wjps(params, fam, j_hat, gamma, verbose=False)
+        m = measure(res["x"], res["h"])
+        lv = m["levels_db"][3:8]
+        hist.append({"round": rnd, "weights": dict(nat),
+                     "levels_db": [float(v) for v in lv],
+                     "psl_db": m["psl_db"], "lpg_db": m["lpg_db"],
+                     "is_v": bool(is_v(lv))})
+        if verbose:
+            print(f"  第 {rnd + 1} 轮  权重 "
+                  + ":".join(f"{nat[e]:.1f}" for e in DEL)
+                  + "  |  " + "  ".join(f"{v:6.1f}" for v in lv)
+                  + ("   V ✓" if is_v(lv) else "   非单调"), flush=True)
+        if is_v(lv):
+            res.update(weights=dict(nat), rounds=rnd + 1, levels=lv,
+                       psl_db=m["psl_db"], lpg_db=m["lpg_db"], history=hist)
+            return res
+        center = lv[2]
+        for e in DEL:
+            if e != 0 and lv[e + 2] < center:
+                nat[e] = max(nat[e] * 0.6, 0.2)
+        nat[0] = min(nat[0] * 1.6, 40.0)
+    res.update(weights=dict(nat), rounds=max_rounds, levels=lv,
+               psl_db=m["psl_db"], lpg_db=m["lpg_db"], history=hist)
+    return res
 
 
 def level_block_Q(x: np.ndarray, fam: list, E: np.ndarray) -> np.ndarray:
@@ -167,19 +220,24 @@ def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--gamma", type=float, default=0.3)
+    ap.add_argument("--gamma", type=float, default=0.6)
     ap.add_argument("--bmin", type=float, default=-50.0)
     ap.add_argument("--m-outer", type=int, default=100)
+    ap.add_argument("--max-rounds", type=int, default=5,
+                    help="次序反馈最多几轮（ADR-0012）")
+    ap.add_argument("--no-feedback", action="store_true",
+                    help="关闭次序反馈，只按初始权重设计一次")
     args = ap.parse_args()
 
     params = dataclasses.replace(
         baseline.params_for(peak_interf_db=args.bmin), M=args.m_outer)
-    fam = family()
-    j0, offs0, _ = fam[0]
-    j_hat = sum(w * j for j, _, w in fam)
+    fam0 = family()
+    j0, offs0, _ = fam0[0]
     print(f"b_min = {args.bmin:g} dB，γ = {args.gamma:g}，"
           f"M_outer = {params.M}，复合约束")
-    print("权重 ω = " + ", ".join(f"{w:.3f}" for _, _, w in fam) + "\n")
+    print("初始权重 ω（自然顺序 -2,-1,0,+1,+2）= "
+          + ":".join(f"{W_INIT[e]:g}" for e in DEL)
+          + ("，次序反馈开启" if not args.no_feedback else "，次序反馈关闭") + "\n")
 
     # 扩V前：现有设计，在同一个 b_min 下重新设计（保证前后口径一致）
     t = time.perf_counter()
@@ -187,8 +245,17 @@ def main() -> None:
     print(f"扩V前设计完成：{time.perf_counter() - t:.1f} s")
 
     t = time.perf_counter()
-    res = joint_design_wjps(params, fam, j_hat, args.gamma, verbose=True)
-    print(f"扩V后设计完成：{time.perf_counter() - t:.1f} s\n")
+    if args.no_feedback:
+        fam = family()
+        res = joint_design_wjps(params, fam, sum(w * j for j, _, w in fam),
+                                args.gamma, verbose=True)
+        res.update(weights=dict(W_INIT), rounds=1, history=[])
+    else:
+        res = design_with_feedback(params, args.gamma,
+                                   max_rounds=args.max_rounds, verbose=True)
+    print(f"扩V后设计完成：{time.perf_counter() - t:.1f} s"
+          f"（{res['rounds']} 轮，最终权重 "
+          + ":".join(f"{res['weights'][e]:.1f}" for e in DEL) + "）\n")
 
     before = measure(base["x"], base["h"])
     after = measure(res["x"], res["h"])
@@ -201,10 +268,13 @@ def main() -> None:
     tag = f"gamma{args.gamma:g}_bmin{abs(args.bmin):g}dB"
     np.savez_compressed(OUTDIR / f"scene_wjps_design_{tag}.npz",
                         x=res["x"], h=res["h"], x_before=base["x"],
-                        h_before=base["h"], j_hat=j_hat)
+                        h_before=base["h"])
     payload = {"gamma": args.gamma, "b_min_db": args.bmin,
                "m_outer": params.M, "constraint": "composite",
-               "family": "T_s ±2 samples", "before": before, "after": after,
+               "family": "T_s ±2 samples",
+               "weights": {str(e): float(res["weights"][e]) for e in DEL},
+               "rounds": res["rounds"], "history": res.get("history", []),
+               "before": before, "after": after,
                "elapsed_s": res["elapsed_s"]}
     out = OUTDIR / f"scene08_composite_{tag}.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
