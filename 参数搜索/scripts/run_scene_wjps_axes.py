@@ -169,7 +169,8 @@ def main() -> None:
         ax.tick_params(labelsize=8, colors=TXT)
     fig.suptitle("单参数展宽：t₀ 与 T_L（权重次序反馈，γ=0.6，b_min=−50 dB）",
                  fontsize=12, color="#404040", y=1.02)
-    out = Path(r"C:\Users\wuguo\Desktop\扩V_单参数_t0_TL.png")
+    out = OUTDIR / "图" / "扩V_单参数_t0_TL.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=200, facecolor="white", bbox_inches="tight")
     plt.close(fig)
     print("图已保存：", out)
